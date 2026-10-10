@@ -22,8 +22,8 @@ reply is JSON (JavaScript Object Notation) sent over HTTP (HyperText Transfer Pr
 | `demo_payment_flow.py` | The scripted demonstration: starts three nodes and prints every request and reply |
 | `sample_outputs.txt` | The output of `demo_payment_flow.py`, written by the program |
 | `Assignment8_Bukho_Ndziweni_Blockchain_220081696.ipynb` | The same work cell by cell |
+| `Assignment8_Bukho_Ndziweni_Blockchain_220081696.html` | The notebook with its outputs, saved as a web page that opens without Jupyter |
 | `requirements.txt` | The two external dependencies, Flask and requests |
-| Report (`.pdf`) | The written report, including Part B and the Part C design memo |
 
 ## Running it
 
