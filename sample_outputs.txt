@@ -1,0 +1,608 @@
+BLCH9X2 Assignment 8: REST API and Networking Lab
+Three nodes started: http://127.0.0.1:5000, http://127.0.0.1:5001, http://127.0.0.1:5002
+
+====================================================================================================
+SECTION 1  A FULL PAYMENT ON ONE NODE (brief items a and b)
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+Step 1  The chain at the start holds only the genesis block
+----------------------------------------------------------------------------------------------------
+GET http://127.0.0.1:5000/chain
+HTTP 200
+{
+  "length": 1,
+  "difficulty": 4,
+  "chain": [
+    {
+      "index": 0,
+      "timestamp": 1790812800,
+      "transactions": [],
+      "previous_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "nonce": 16969,
+      "hash": "0000b4bcb3caad5c9e80b5c9cc18f3cecfa7f1a70ff0c46b8347937b3de41f13"
+    }
+  ]
+}
+
+
+----------------------------------------------------------------------------------------------------
+Step 2  Alice mines block 1, so the block reward gives her funds to send
+----------------------------------------------------------------------------------------------------
+POST http://127.0.0.1:5000/mine
+body: {"miner": "alice"}
+HTTP 201
+{
+  "message": "block 1 mined",
+  "block": {
+    "index": 1,
+    "timestamp": 1790813400,
+    "transactions": [
+      {
+        "type": "coinbase",
+        "sender": null,
+        "receiver": "alice",
+        "amount": 50,
+        "fee": 0,
+        "reference": "reward for block 1",
+        "txid": "b3969a560d8f9b685f10b7917c01b8aa464d5949c7136cc9edc83ecc7d92f484"
+      }
+    ],
+    "previous_hash": "0000b4bcb3caad5c9e80b5c9cc18f3cecfa7f1a70ff0c46b8347937b3de41f13",
+    "nonce": 112065,
+    "hash": "0000d180ac57b00df72b03e2574d9665fe7d36cca699dc373a975a82a10c43d9"
+  },
+  "attempts": 112066,
+  "seconds": 1.034,
+  "announced_to": []
+}
+
+
+----------------------------------------------------------------------------------------------------
+Step 3  Alice's balance is now the block subsidy of 50
+----------------------------------------------------------------------------------------------------
+GET http://127.0.0.1:5000/balance/alice
+HTTP 200
+{
+  "address": "alice",
+  "confirmed": 50,
+  "pending_out": 0,
+  "available": 50
+}
+
+
+----------------------------------------------------------------------------------------------------
+Step 4  Alice submits a payment of 20 to Bob
+----------------------------------------------------------------------------------------------------
+POST http://127.0.0.1:5000/transactions/new
+body: {"sender": "alice", "receiver": "bob", "amount": 20, "reference": "remittance-001"}
+HTTP 201
+{
+  "message": "payment accepted into the pending pool",
+  "transaction": {
+    "type": "payment",
+    "sender": "alice",
+    "receiver": "bob",
+    "amount": 20,
+    "fee": 1,
+    "reference": "remittance-001",
+    "txid": "52ad97a885a7b741ae1e2729c86f98ea666221353bdf2e92a6f4e76777488aa1"
+  },
+  "pending_count": 1,
+  "announced_to": []
+}
+
+
+----------------------------------------------------------------------------------------------------
+Step 5  The payment is pending: it is in the pool, and Alice's funds are reserved
+----------------------------------------------------------------------------------------------------
+GET http://127.0.0.1:5000/transactions/pending
+HTTP 200
+{
+  "count": 1,
+  "transactions": [
+    {
+      "type": "payment",
+      "sender": "alice",
+      "receiver": "bob",
+      "amount": 20,
+      "fee": 1,
+      "reference": "remittance-001",
+      "txid": "52ad97a885a7b741ae1e2729c86f98ea666221353bdf2e92a6f4e76777488aa1"
+    }
+  ]
+}
+
+GET http://127.0.0.1:5000/balance/alice
+HTTP 200
+{
+  "address": "alice",
+  "confirmed": 50,
+  "pending_out": 21,
+  "available": 29
+}
+
+
+----------------------------------------------------------------------------------------------------
+Step 6  A miner mines block 2, which includes the pending payment
+----------------------------------------------------------------------------------------------------
+POST http://127.0.0.1:5000/mine
+body: {"miner": "miner-a"}
+HTTP 201
+{
+  "message": "block 2 mined",
+  "block": {
+    "index": 2,
+    "timestamp": 1790814000,
+    "transactions": [
+      {
+        "type": "coinbase",
+        "sender": null,
+        "receiver": "miner-a",
+        "amount": 51,
+        "fee": 0,
+        "reference": "reward for block 2",
+        "txid": "ee387f44950ea76b1402a00c5f5263b1a5f391dd9f4f124375fec36bbd849eac"
+      },
+      {
+        "type": "payment",
+        "sender": "alice",
+        "receiver": "bob",
+        "amount": 20,
+        "fee": 1,
+        "reference": "remittance-001",
+        "txid": "52ad97a885a7b741ae1e2729c86f98ea666221353bdf2e92a6f4e76777488aa1"
+      }
+    ],
+    "previous_hash": "0000d180ac57b00df72b03e2574d9665fe7d36cca699dc373a975a82a10c43d9",
+    "nonce": 110273,
+    "hash": "0000477c464f83742b3706bc70b79c9c134ccad477a642a32c2a7f7618dfde4e"
+  },
+  "attempts": 110274,
+  "seconds": 1.277,
+  "announced_to": []
+}
+
+
+----------------------------------------------------------------------------------------------------
+Step 7  The payment is confirmed, with one confirmation
+----------------------------------------------------------------------------------------------------
+GET http://127.0.0.1:5000/transactions/52ad97a885a7b741ae1e2729c86f98ea666221353bdf2e92a6f4e76777488aa1
+HTTP 200
+{
+  "status": "confirmed",
+  "block_index": 2,
+  "confirmations": 1,
+  "transaction": {
+    "type": "payment",
+    "sender": "alice",
+    "receiver": "bob",
+    "amount": 20,
+    "fee": 1,
+    "reference": "remittance-001",
+    "txid": "52ad97a885a7b741ae1e2729c86f98ea666221353bdf2e92a6f4e76777488aa1"
+  }
+}
+
+
+----------------------------------------------------------------------------------------------------
+Step 8  Final balances: Alice 29, Bob 20, the miner 51 (subsidy 50 plus the fee of 1)
+----------------------------------------------------------------------------------------------------
+GET http://127.0.0.1:5000/balance/alice
+HTTP 200
+{
+  "address": "alice",
+  "confirmed": 29,
+  "pending_out": 0,
+  "available": 29
+}
+
+GET http://127.0.0.1:5000/balance/bob
+HTTP 200
+{
+  "address": "bob",
+  "confirmed": 20,
+  "pending_out": 0,
+  "available": 20
+}
+
+GET http://127.0.0.1:5000/balance/miner-a
+HTTP 200
+{
+  "address": "miner-a",
+  "confirmed": 51,
+  "pending_out": 0,
+  "available": 51
+}
+
+
+----------------------------------------------------------------------------------------------------
+Step 9  Three requests the node refuses
+----------------------------------------------------------------------------------------------------
+(a) The same payment sent again: same txid, so it cannot pay twice
+
+POST http://127.0.0.1:5000/transactions/new
+body: {"sender": "alice", "receiver": "bob", "amount": 20, "reference": "remittance-001"}
+HTTP 409
+{
+  "error": "this exact payment has already been submitted; change 'reference' to pay again",
+  "txid": "52ad97a885a7b741ae1e2729c86f98ea666221353bdf2e92a6f4e76777488aa1"
+}
+
+(b) A payment larger than the sender's available balance
+
+POST http://127.0.0.1:5000/transactions/new
+body: {"sender": "alice", "receiver": "bob", "amount": 500}
+HTTP 422
+{
+  "error": "'alice' needs 501 (amount plus fee) but has 29 available"
+}
+
+(c) A malformed payment: the amount is not a whole number
+
+POST http://127.0.0.1:5000/transactions/new
+body: {"sender": "alice", "receiver": "bob", "amount": 2.5}
+HTTP 400
+{
+  "error": "'amount' must be a whole number greater than zero"
+}
+
+
+====================================================================================================
+SECTION 2  EXPLORER VIEW OF NODE A AFTER THE PAYMENT (brief item c)
+====================================================================================================
+
+====================================================================================================
+BLOCK EXPLORER  node 127.0.0.1:5000
+====================================================================================================
+Node             : 127.0.0.1:5000
+Chain height     : 2 (3 blocks including genesis)
+Difficulty       : 4 leading zeros
+Pending payments : 0
+Peers            : none
+
+RECENT BLOCKS (newest first, 3 of 3)
+  Index  Time (UTC)        Txs  Nonce    Hash                 Previous hash
+  2      2026-10-01 00:20  2    110,273  0000477c464f8374...  0000d180ac57b00d...
+  1      2026-10-01 00:10  1    112,065  0000d180ac57b00d...  0000b4bcb3caad5c...
+  0      2026-10-01 00:00  0    16,969   0000b4bcb3caad5c...  0000000000000000...
+
+RECENT TRANSACTIONS (newest first, 3 of 3)
+  Block  Type      From         To       Amount  Fee  Reference           Txid
+  2      payment   alice        bob      20      1    remittance-001      52ad97a885a7b741...
+  2      coinbase  (new coins)  miner-a  51      0    reward for block 2  ee387f44950ea76b...
+  1      coinbase  (new coins)  alice    50      0    reward for block 1  b3969a560d8f9b68...
+
+PENDING PAYMENTS (0)
+  (none)
+
+CONFIRMED BALANCES
+  Address  Balance
+  alice    29
+  bob      20
+  miner-a  51
+
+====================================================================================================
+SECTION 3  THREE NODES: PEER DISCOVERY AND GOSSIP (Part B)
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+Step 10  Node A is told about node B, and introduces itself to B
+----------------------------------------------------------------------------------------------------
+POST http://127.0.0.1:5000/nodes/register
+body: {"nodes": ["http://127.0.0.1:5001"]}
+HTTP 201
+{
+  "message": "1 peer(s) added",
+  "added": [
+    "127.0.0.1:5001"
+  ],
+  "already_known": [],
+  "rejected": [],
+  "nodes": [
+    "127.0.0.1:5001"
+  ]
+}
+
+
+----------------------------------------------------------------------------------------------------
+Step 11  Node C joins knowing only node A, and learns about B through relayed addresses
+----------------------------------------------------------------------------------------------------
+POST http://127.0.0.1:5002/nodes/register
+body: {"nodes": ["http://127.0.0.1:5000"]}
+HTTP 201
+{
+  "message": "1 peer(s) added",
+  "added": [
+    "127.0.0.1:5000"
+  ],
+  "already_known": [],
+  "rejected": [],
+  "nodes": [
+    "127.0.0.1:5000",
+    "127.0.0.1:5001"
+  ]
+}
+
+GET http://127.0.0.1:5000/nodes
+HTTP 200
+{
+  "node": "127.0.0.1:5000",
+  "count": 2,
+  "nodes": [
+    "127.0.0.1:5001",
+    "127.0.0.1:5002"
+  ]
+}
+
+GET http://127.0.0.1:5001/nodes
+HTTP 200
+{
+  "node": "127.0.0.1:5001",
+  "count": 2,
+  "nodes": [
+    "127.0.0.1:5000",
+    "127.0.0.1:5002"
+  ]
+}
+
+GET http://127.0.0.1:5002/nodes
+HTTP 200
+{
+  "node": "127.0.0.1:5002",
+  "count": 2,
+  "nodes": [
+    "127.0.0.1:5000",
+    "127.0.0.1:5001"
+  ]
+}
+
+Address messages, merged from GET /log of all three nodes:
+  seq  node   event
+    4  :5000  got addr from a client: learned :5001
+    5  :5000  sent addr (:5000) to :5001
+    6  :5001  got addr from :5000: learned :5000
+    7  :5002  got addr from a client: learned :5000
+    8  :5002  sent addr (:5002) to :5000
+    9  :5000  got addr from :5002: learned :5002
+   10  :5000  sent addr (:5002) to :5001
+   11  :5001  got addr from :5000: learned :5002
+   12  :5001  sent addr (:5001) to :5002
+   13  :5002  got addr from :5001: learned :5001
+   14  :5002  sent addr (:5001) to :5000
+   15  :5000  got addr from :5002: nothing new, so nothing relayed
+
+
+----------------------------------------------------------------------------------------------------
+Step 12  Nodes B and C still hold only genesis, so they catch up from their peers
+----------------------------------------------------------------------------------------------------
+GET http://127.0.0.1:5001/nodes/resolve
+HTTP 200
+{
+  "message": "chain replaced by a longer valid chain",
+  "replaced": true,
+  "length": 3,
+  "checked": [
+    {
+      "peer": "127.0.0.1:5000",
+      "adopted": true,
+      "detail": "adopted the longer valid chain"
+    },
+    {
+      "peer": "127.0.0.1:5002",
+      "adopted": false,
+      "detail": "the other chain is not longer"
+    }
+  ]
+}
+
+GET http://127.0.0.1:5002/nodes/resolve
+HTTP 200
+{
+  "message": "chain replaced by a longer valid chain",
+  "replaced": true,
+  "length": 3,
+  "checked": [
+    {
+      "peer": "127.0.0.1:5000",
+      "adopted": true,
+      "detail": "adopted the longer valid chain"
+    },
+    {
+      "peer": "127.0.0.1:5001",
+      "adopted": false,
+      "detail": "the other chain is not longer"
+    }
+  ]
+}
+
+Synchronisation messages:
+  seq  node   event
+   16  :5001  adopted the chain of :5000, now 3 blocks
+   17  :5002  adopted the chain of :5000, now 3 blocks
+
+
+----------------------------------------------------------------------------------------------------
+Step 13  Bob pays Carol through node C, and the payment reaches A and B by inv and getdata
+----------------------------------------------------------------------------------------------------
+POST http://127.0.0.1:5002/transactions/new
+body: {"sender": "bob", "receiver": "carol", "amount": 5, "reference": "school-fees"}
+HTTP 201
+{
+  "message": "payment accepted into the pending pool",
+  "transaction": {
+    "type": "payment",
+    "sender": "bob",
+    "receiver": "carol",
+    "amount": 5,
+    "fee": 1,
+    "reference": "school-fees",
+    "txid": "f76a100ef1387abd2782fa4a4d11de0933d9b81a67e6c5f15327d540f6ab946b"
+  },
+  "pending_count": 1,
+  "announced_to": [
+    "127.0.0.1:5000",
+    "127.0.0.1:5001"
+  ]
+}
+
+Transaction gossip:
+  seq  node   event
+   18  :5002  tx f76a100e submitted by a client, added to the pending pool
+   19  :5002  sent inv (tx f76a100e) to :5000
+   20  :5000  got inv (tx f76a100e) from :5002: new, sent getdata
+   21  :5002  got getdata (tx f76a100e), sent the tx
+   22  :5000  tx f76a100e added to the pending pool
+   23  :5000  sent inv (tx f76a100e) to :5001
+   24  :5001  got inv (tx f76a100e) from :5000: new, sent getdata
+   25  :5000  got getdata (tx f76a100e), sent the tx
+   26  :5001  tx f76a100e added to the pending pool
+   27  :5001  sent inv (tx f76a100e) to :5002
+   28  :5002  got inv (tx f76a100e) from :5001: already held, ignored
+   29  :5002  sent inv (tx f76a100e) to :5001
+   30  :5001  got inv (tx f76a100e) from :5002: already held, ignored
+
+
+----------------------------------------------------------------------------------------------------
+Step 14  Node B mines block 3, and the block reaches A and C by inv and getdata
+----------------------------------------------------------------------------------------------------
+POST http://127.0.0.1:5001/mine
+body: {"miner": "miner-b"}
+HTTP 201
+{
+  "message": "block 3 mined",
+  "block": {
+    "index": 3,
+    "timestamp": 1790814600,
+    "transactions": [
+      {
+        "type": "coinbase",
+        "sender": null,
+        "receiver": "miner-b",
+        "amount": 51,
+        "fee": 0,
+        "reference": "reward for block 3",
+        "txid": "78e6fcf5c24bed5ea8b079510c7664b5095a7032ffd246fd3d40126f6d3379ac"
+      },
+      {
+        "type": "payment",
+        "sender": "bob",
+        "receiver": "carol",
+        "amount": 5,
+        "fee": 1,
+        "reference": "school-fees",
+        "txid": "f76a100ef1387abd2782fa4a4d11de0933d9b81a67e6c5f15327d540f6ab946b"
+      }
+    ],
+    "previous_hash": "0000477c464f83742b3706bc70b79c9c134ccad477a642a32c2a7f7618dfde4e",
+    "nonce": 148632,
+    "hash": "0000fd3be69792f883293240c9765d6e36ca2623db120f0ec7212c5341f10544"
+  },
+  "attempts": 148633,
+  "seconds": 1.692,
+  "announced_to": [
+    "127.0.0.1:5000",
+    "127.0.0.1:5002"
+  ]
+}
+
+Block gossip:
+  seq  node   event
+   31  :5001  mined block 3 (0000fd3b) after 148,633 attempts
+   32  :5001  sent inv (block 0000fd3b) to :5000
+   33  :5000  got inv (block 0000fd3b) from :5001: new, sent getdata
+   34  :5001  got getdata (block 0000fd3b), sent the block
+   35  :5000  block 3 (0000fd3b) appended to the chain
+   36  :5000  sent inv (block 0000fd3b) to :5002
+   37  :5002  got inv (block 0000fd3b) from :5000: new, sent getdata
+   38  :5000  got getdata (block 0000fd3b), sent the block
+   39  :5002  block 3 (0000fd3b) appended to the chain
+   40  :5002  sent inv (block 0000fd3b) to :5001
+   41  :5001  got inv (block 0000fd3b) from :5002: already held, ignored
+   42  :5001  sent inv (block 0000fd3b) to :5002
+   43  :5002  got inv (block 0000fd3b) from :5001: already held, ignored
+
+
+----------------------------------------------------------------------------------------------------
+Step 15  All three nodes agree
+----------------------------------------------------------------------------------------------------
+  node             length  newest block hash                                                 pending
+  127.0.0.1:5000       4  0000fd3be69792f883293240c9765d6e36ca2623db120f0ec7212c5341f10544        0
+  127.0.0.1:5001       4  0000fd3be69792f883293240c9765d6e36ca2623db120f0ec7212c5341f10544        0
+  127.0.0.1:5002       4  0000fd3be69792f883293240c9765d6e36ca2623db120f0ec7212c5341f10544        0
+
+  Carol's confirmed balance on node A: 5
+
+====================================================================================================
+EXPLORER VIEW OF NODE C AFTER THE NETWORK STEPS
+====================================================================================================
+
+====================================================================================================
+BLOCK EXPLORER  node 127.0.0.1:5002
+====================================================================================================
+Node             : 127.0.0.1:5002
+Chain height     : 3 (4 blocks including genesis)
+Difficulty       : 4 leading zeros
+Pending payments : 0
+Peers            : 127.0.0.1:5000, 127.0.0.1:5001
+
+RECENT BLOCKS (newest first, 4 of 4)
+  Index  Time (UTC)        Txs  Nonce    Hash                 Previous hash
+  3      2026-10-01 00:30  2    148,632  0000fd3be69792f8...  0000477c464f8374...
+  2      2026-10-01 00:20  2    110,273  0000477c464f8374...  0000d180ac57b00d...
+  1      2026-10-01 00:10  1    112,065  0000d180ac57b00d...  0000b4bcb3caad5c...
+  0      2026-10-01 00:00  0    16,969   0000b4bcb3caad5c...  0000000000000000...
+
+RECENT TRANSACTIONS (newest first, 5 of 5)
+  Block  Type      From         To       Amount  Fee  Reference           Txid
+  3      payment   bob          carol    5       1    school-fees         f76a100ef1387abd...
+  3      coinbase  (new coins)  miner-b  51      0    reward for block 3  78e6fcf5c24bed5e...
+  2      payment   alice        bob      20      1    remittance-001      52ad97a885a7b741...
+  2      coinbase  (new coins)  miner-a  51      0    reward for block 2  ee387f44950ea76b...
+  1      coinbase  (new coins)  alice    50      0    reward for block 1  b3969a560d8f9b68...
+
+PENDING PAYMENTS (0)
+  (none)
+
+CONFIRMED BALANCES
+  Address  Balance
+  alice    29
+  bob      14
+  carol    5
+  miner-a  51
+  miner-b  51
+
+====================================================================================================
+SECTION 4  SELF-CHECKS
+====================================================================================================
+
+  [PASS] GET /chain returns 200 and a chain of one block
+  [PASS] POST /mine returns 201 and block 1
+  [PASS] Alice holds 50 after mining
+  [PASS] POST /transactions/new returns 201 and a txid
+  [PASS] the pending pool holds exactly that payment
+  [PASS] Alice has 21 reserved (amount 20 plus fee 1) and 29 available
+  [PASS] block 2 contains the payment
+  [PASS] the payment is confirmed in block 2
+  [PASS] balances are Alice 29, Bob 20, miner 51
+  [PASS] total balances equal total subsidy (2 blocks x 50)
+  [PASS] a repeated payment is refused with 409
+  [PASS] an unaffordable payment is refused with 422
+  [PASS] a malformed payment is refused with 400
+  [PASS] no refused payment entered the pending pool
+  [PASS] POST /nodes/register returns 201
+  [PASS] C learned B without being told directly
+  [PASS] node 127.0.0.1:5000 lists the other two nodes
+  [PASS] node 127.0.0.1:5001 lists the other two nodes
+  [PASS] node 127.0.0.1:5002 lists the other two nodes
+  [PASS] node 127.0.0.1:5001 adopted the 3 block chain
+  [PASS] node 127.0.0.1:5002 adopted the 3 block chain
+  [PASS] node C now sees Alice's payment as confirmed
+  [PASS] node 127.0.0.1:5000 received the payment by gossip
+  [PASS] node 127.0.0.1:5001 received the payment by gossip
+  [PASS] node 127.0.0.1:5000 ends on block 3 with an empty pool
+  [PASS] node 127.0.0.1:5001 ends on block 3 with an empty pool
+  [PASS] node 127.0.0.1:5002 ends on block 3 with an empty pool
+  [PASS] Carol holds 5 on node A
+
+28 passed, 0 failed
